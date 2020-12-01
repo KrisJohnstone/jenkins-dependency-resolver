@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using CommandLine;
 using JenkinsDependencyResolver;
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 using Program = JenkinsDependencyResolver.Program;
 
 namespace UnitTests
@@ -32,19 +33,21 @@ namespace UnitTests
         }
         
         [Test]
-        public async Task ProcessJSON()
+        public async Task CheckDependencies()
         {
-            var x = await Program.GetUpdateCenter
-                ("https://updates.jenkins.io/current/update-center.json");
-
             var pluginList = new List<string>()
             {
                 "kubernetes", "workflow-api", "workflow-cps", "workflow-step-api", "authentication-tokens", "cloudbees-folder", "credentials", "durable-task", "jackson2-api", "kubernetes-client-api", "metrics", "plain-credentials", "structs", "variant", "kubernetes-credentials", "pipeline-model-extensions"
             };
+            
+            var x = await Program.GetUpdateCenter
+                ("https://updates.jenkins.io/current/update-center.json");
             var process = await Program.GetPluginList(x.Data, new List<string>(){"kubernetes"});
             
-            Assert.AreEqual(pluginList,process);
+            var finalList = await Program.ListPlugins(new[] { "kubernetes" }, process);
             
+            Assert.AreEqual(pluginList, finalList);
+
         }
         
         [Test]
