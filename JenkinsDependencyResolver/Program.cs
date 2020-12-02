@@ -1,9 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommandLine;
+using JenkinsDependencyResolver.Models;
+using Microsoft.VisualBasic;
+using Newtonsoft.Json;
 using StackExchange.Utils;
 
 namespace JenkinsDependencyResolver
@@ -20,43 +24,68 @@ namespace JenkinsDependencyResolver
                         if (string.IsNullOrEmpty(o.UpdateCenterURL))
                             o.UpdateCenterURL = "https://updates.jenkins.io/current/update-center.json";
 
-                        var updateCenterJson = await GetUpdateCenter(o.UpdateCenterURL);
+                        string updateCenterJson;
+                        if (string.IsNullOrEmpty(o.File))
+                        {
+                            var updateCenterResponse = await GetUpdateCenter(o.UpdateCenterURL);
+                            if (!updateCenterResponse.Success) return;
+                            updateCenterJson = updateCenterResponse.Data.Substring(19).TrimEnd(new[] { ')', ';' });
+                        }
+                        else
+                        {
+                            updateCenterJson = await GetUpdateCenterFromFile(o.File);
+                        }
 
-                        if (!updateCenterJson.Success) return;
+                        var finalList = new List<string>();
+                        try
+                        {
+                            var pluginListObject = await DeserializePluginList(updateCenterJson);
+                            finalList = await GetPluginsList(o.Plugins, pluginListObject);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.Message);
+                        }
 
-                        var pluginListJson = await GetPluginList(updateCenterJson.Data, o.Plugins);
-
-                        var finalList = await ListPlugins(o.Plugins, pluginListJson);
                         finalList.AddRange(o.Plugins);
-                        var listOfPlugins = string.Join(" ", finalList.Distinct().ToArray());
-                        
-                        await WriteOutPlugins(string.Join(" ",listOfPlugins));
+                        await WriteOutPlugins(finalList.Distinct().ToArray());
                     }
                 });
         }
 
-        public static async ValueTask<List<string>> ListPlugins(IEnumerable<string> plugins, JsonElement listOfPlugins)
+        public static async ValueTask<List<string>> GetPluginsList(IEnumerable<string> plugins, JenkinsPlugins listOfPlugins)
         {
             var finalList = new List<string>();
             var tempList = new List<string>();
             foreach (var x in plugins)
             {
-                var y = await ReturnDependency(x, listOfPlugins);
-                finalList.AddRange(y);
-                tempList.AddRange(y);
+                listOfPlugins.Plugins.TryGetValue(x, out var p);
+                if(p is null) continue;
+
+                var listdeps = p.Dependencies;
+
+                var requireDependencies = (from l in listdeps where l.Optional == false select l.Name).ToList();
+
+                finalList.AddRange(requireDependencies);
+                tempList.AddRange(requireDependencies);
             }
 
             foreach (var x in tempList)
             {
-                if (!finalList.Contains(x))
-                {
-                    finalList.AddRange(await ReturnDependency(x, listOfPlugins));
-                }
-                tempList.Remove(x);
-            }
+                if (finalList.Contains(x)) continue;
+                
+                listOfPlugins.Plugins.TryGetValue(x, out var p);
+                if (p is null) continue;
 
+                var listdeps = p.Dependencies.ToList().Where(d => finalList.All(d2 => d.Name != d.Name));
+                var requireDependencies = (from l in listdeps where l.Optional == false select l.Name).ToList(); ;
+                
+                finalList.AddRange(requireDependencies);
+                tempList.AddRange(requireDependencies);
+            }
             return finalList;
         }
+
         public static async ValueTask<HttpCallResponse<string>> GetUpdateCenter(string updateCenter)
         {
             var result = await Http.Request(updateCenter)
@@ -65,25 +94,32 @@ namespace JenkinsDependencyResolver
             return result;
         }
 
-        public static async ValueTask<JsonElement> GetPluginList(string data, IEnumerable<string> inputPlugins)
+        public static async ValueTask<JenkinsPlugins> DeserializePluginList(string data)
         {
-            var split = data.Substring(19).TrimEnd(new char[] {')',';'});
-            JsonDocument.Parse(split).RootElement.TryGetProperty("plugins", out var plugins);
+            var plugins = JsonConvert.DeserializeObject<JenkinsPlugins>(data);
             return plugins;
         }
 
-        public static async ValueTask<IEnumerable<string>> ReturnDependency(string plugin, JsonElement data)
+        public static async ValueTask<JsonElement> GetPluginListAsJson(string data, IEnumerable<string> inputPlugins)
         {
-            var p = data.GetProperty(plugin);
-            p.TryGetProperty("dependencies", out var d);
-            return d.EnumerateArray().Select(x => x.GetProperty("name").GetString());
+            JsonDocument.Parse(data).RootElement.TryGetProperty("plugins", out var plugins);
+            return plugins;
         }
-        
-        public static async ValueTask WriteOutPlugins(string processed)
+
+        public static async ValueTask WriteOutPlugins(string[] processed)
         {
-            using (var outputFile = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(), "plugins.txt")))
+            using (var outputFile = new StreamWriter(File.OpenWrite(Path.Combine(Directory.GetCurrentDirectory(), "plugins.txt"))))
             {
-                await outputFile.WriteAsync(processed);
+                foreach (var s in processed)
+                    await outputFile.WriteLineAsync(s);
+            }
+        }
+
+        public static async ValueTask<string> GetUpdateCenterFromFile(string file)
+        {
+            using (var inputFile = new StreamReader(Path.Combine(Directory.GetCurrentDirectory(), file)))
+            {
+                return await inputFile.ReadToEndAsync();
             }
         }
     }

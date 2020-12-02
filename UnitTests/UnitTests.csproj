@@ -7,6 +7,15 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Resource Include="UnitTests.cs">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <Resource Include="updateCenterJSON.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="NUnit" Version="3.12.0" />
         <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.0" />
@@ -14,6 +23,12 @@
 
     <ItemGroup>
       <ProjectReference Include="..\JenkinsDependencyResolver\JenkinsDependencyResolver.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="UnitTests.cs">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Compile>
     </ItemGroup>
 
 </Project>

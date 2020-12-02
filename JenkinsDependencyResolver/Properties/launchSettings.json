@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "JenkinsDependencyResolver": {
+      "commandName": "Project",
+      "commandLineArgs": "-p kubernetes workflow-job workflow-aggregator credentials-binding git configuration-as-code rebuild cucumber-reports active-directory role-strategy openshift-client prometheus github-branch-source cloudbees-folder configuration-as-code-secret-ssm pipeline-utility-steps -f updateCentreJSON.json"
+    }
+  }
+}
