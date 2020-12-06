@@ -70,19 +70,21 @@ namespace JenkinsDependencyResolver
                 tempList.AddRange(requireDependencies);
             }
 
-            foreach (var x in tempList)
+            for (var i = 0; i < tempList.Count; i++)
             {
-                if (finalList.Contains(x)) continue;
+                listOfPlugins.Plugins.TryGetValue(tempList.ToArray()[i], out var p);
                 
-                listOfPlugins.Plugins.TryGetValue(x, out var p);
                 if (p is null) continue;
 
-                var listdeps = p.Dependencies.ToList().Where(d => finalList.All(d2 => d.Name != d.Name));
-                var requireDependencies = (from l in listdeps where l.Optional == false select l.Name).ToList(); ;
-                
-                finalList.AddRange(requireDependencies);
-                tempList.AddRange(requireDependencies);
+                var required = (from l in p.Dependencies where l.Optional == false select l.Name);
+                foreach (var d in p.Dependencies)
+                {
+                    finalList.Add(d.Name);
+                    tempList.Add(d.Name);
+                }
             }
+
+            finalList = finalList.OrderBy(q => q).ToList();
             return finalList;
         }
 

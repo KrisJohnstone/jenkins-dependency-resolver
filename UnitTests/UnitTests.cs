@@ -57,7 +57,7 @@ namespace UnitTests
 
             var finalList = await Program.GetPluginsList(new[] { "kubernetes" }, process);
 
-            Assert.AreEqual(pluginList, finalList);
+            Assert.Contains(pluginList, finalList);
         }
 
         [Test]
@@ -69,9 +69,20 @@ namespace UnitTests
                 Plugins = new[] { "kubernetes", "openshift-client" }
             };
 
-            var parsed = sut.ParseArguments<Options>(new[] { "-p", "kubernetes", "openshift-client" });
+            var parsed = sut.ParseArguments<Options>(new[] { "-p", "kubernetes"});
             var result = ((Parsed<Options>)parsed).Value;
             Assert.AreEqual(options.Plugins, result.Plugins);
+        }
+
+        [Test]
+        public async Task CheckDependencyOfDependency()
+        {
+            var x = await Program.GetUpdateCenterFromFile("updateCenterJSON.json");
+            var process = await Program.DeserializePluginList(x);
+
+            var finalList = await Program.GetPluginsList(new[] { "openshift-client" }, process);
+            
+            Assert.Contains("ace-editor", finalList);
         }
     }
 }
