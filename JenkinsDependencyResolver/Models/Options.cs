@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using CommandLine;
 
-namespace JenkinsDependencyResolver
+namespace JenkinsDependencyResolver.Models
 {
     public class Options
     {
@@ -13,5 +13,8 @@ namespace JenkinsDependencyResolver
         
         [Option('r', "remote-location", Required = false, HelpText = "URL location for ")]
         public string PluginLocation { get; set; }
+
+        [Option('f', "filename", Required = false, HelpText = "Sometimes jenkins puts out a malformed json document...")]
+        public string File { get; set; }
     }
 }
